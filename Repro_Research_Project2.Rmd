@@ -4,16 +4,12 @@ author: "Andy Cox"
 date: "19 May 2016"
 output: html_document
 ---
+
 #Health and Economic Impact of Storm Events in the US
-======================================================
+
 ##Synopsis
-========
 The analysis on the storm event database revealed that tornadoes are the most
-dangerous weather event to the population health. The second most dangerous
-event type is the excessive heat. The economic impact of weather events was
-also analyzed. Flash floods and thunderstorm winds caused billions of dollars
-in property damages between 1950 and 2011. The largest crop damage caused by
-drought, followed by flood and hails.
+dangerous weather events, casusinf the most numbers of injuries and fatalities.  The economic impact of weather events was also analyzed. The largest number of property damages are casued by tornadoes, whilst the largest crop damage is casued by hail.
 
 ##Introduction
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
@@ -30,53 +26,65 @@ There is also some documentation of the data
 [here](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf).
 
 ##Objectives
-
 Across the United States, which types of events are most harmful with respect to population health?
 
 Across the United States, which types of events have the greatest economic consequences?
 
-
-
-
-
 ##Data Processing
-=====================
-
-The working environment is cleared and required packages are loaded. Then data is laoded directly from the zip file. To save space in memory only the varaibles needed for the analysis are loaded.
-
+The working environment is cleared and required packages are loaded. 
 ```{r cache=TRUE}
 rm(list = ls())
-library(plyr)
-# library(ddply)
 library(ggplot2)
 library(gridExtra)
+library(plyr)
+library(stringr)
+```
+Then data is laoded directly from the zip file. To save space in memory only the variables needed for the analysis are loaded.
 
-
+```{r}
 stormdat1 <- read.csv(bzfile("repdata-data-StormData.csv.bz2"))
 #Select only the columns we need
 cols <- c("BGN_DATE","EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
 stormdat1<-stormdat1[,colnames(stormdat1)%in%cols]
 ```
-##Justification for Data Transformations
-Before the analysis, the data need some preprocessing. Event types don't have a
-specific format. For instance, there are events with many variations in naming conventions. Intial Inspection shows alot of work is needed to correct this. However, as this assigment is about reproducible research and not data analysis, only a minimum will be done to transfrom the data
+**Justification for Data Transformations**
 
+Before the analysis, the data need some preprocessing. Event types have over 900 levels and those levels don't have a specific and clear format. For instance, there are events with many variations in naming conventions. Intial Inspection shows alot of work is needed to correct this. However, as this assigment is about reproducible research and not data analysis, only a minimum will be done to transfrom the data
 
 ```{r}
 # number of unique event types
 length(unique(stormdat1$EVTYPE))
-# translate all letters to lowercase
-#event_types <- tolower(stormdat1$EVTYPE)
-# replace all punct. characters with a space
- event_types <- stormdat1$EVTYPE
 
+ event_types <- stormdat1$EVTYPE
+# translate all letters to uppercase
+event_types <- toupper(str_trim(event_types))
+event_types <- gsub("TSTM WIND", "MARINE THUNDERSTORM WIND" , event_types)
+event_types <- gsub("URBAN/SML STREAM FLD", "HEAVY RAIN", event_types)
+event_types <- gsub("MARINE TSTM WIND","MARINE THUNDERSTORM WIND", event_types)
+event_types <- gsub("WILD/FOREST FIRE", "WILDFIRE", event_types)
+event_types <- gsub("marinethunderstormwind/hail", "marinethunderstormwind", event_types)
+event_types <- gsub("TSTM WIND/HAIL","MARINE THUNDERSTORM WIND", event_types)
+event_types <- gsub("flashflooding", "flashflood", event_types)
+event_types <- gsub("FLOOD/FLASH FLOOD", "FLASH FLOOD", event_types)
+event_types <- gsub("WINTER data/MIX", "WINTER data", event_types)
+event_types <- gsub("RIP CURRENTS", "RIP CURRENT", event_types)
+event_types <- gsub("DENSEDENSEFOG", "DENSE FOG", event_types)
+event_types <- gsub("STRONG WINDS","ASTROMICAL LOW TIDE", event_types)
+event_types <- gsub("COASTAL FLOODING", "COASTAL FLOOD ", event_types)
+event_types <- gsub("RIVER FLOOD", "FLOOD", event_types)
+event_types <- gsub("RECORD WARMTH", "HEAT", event_types)
+event_types <- gsub("RECORD HEAT", "HEAT", event_types)
+event_types <- gsub("FREEZE", "FROST/FREEZE", event_types)
+event_types <- gsub("HEATWAVE", "EXCESSIVE HEAT", event_types)
+event_types <- gsub("HURRICANE/TYPHOON", "HURRICANE", event_types)
+
+# replace all punct. characters with a space
 # update the data frame
 stormdat1$EVTYPE <- event_types
 ```
 
 #Results
 ##Dangerous Events with respect to Population Health
-================================================
 
 To find the event types that are most harmful to population health, the number
 of casualties and injuries are aggregated by the event type.
@@ -98,7 +106,7 @@ injury_events
 Top 10 events that caused largest number of deaths are
 
 **Figure 1.** Barplot showing the frequencies of fatalities due to specific weather events.
-```{r}
+```{r echo=FALSE}
 # Plot Fatalities
 ggplot(data = fatal_events, aes(x=EVTYPE, fatalities, fill = fatalities)) + geom_bar(stat = "identity") + 
     xlab("Event") + ylab("Fatalities") + ggtitle("Fatalities caused by Events (top 10) ") + 
@@ -106,16 +114,13 @@ ggplot(data = fatal_events, aes(x=EVTYPE, fatalities, fill = fatalities)) + geom
 ```
 
 **Figure 2.** Barplot showing the frequencies of injuries due to specific weather events.
-```{r}
+```{r echo=FALSE}
 # Plot Injuries
 ggplot(data = injury_events, aes(x=EVTYPE, injuries, fill = injuries)) + geom_bar(stat = "identity") + 
     xlab("Event") + ylab("Injuries") + ggtitle("Injuries caused by Events (top 10) ") + 
     coord_flip() + theme(legend.position = "none")
 ```
-Economic Effects of Weather Events
-==================================
-Top 10 events that caused largest greatest Economic Loss
-
+#Economic Effects of Weather Events
 To find the event types that are associated wiht the greatest economic loss, the  losses are aggregated by the event type.
 
 ```{r}
@@ -126,28 +131,20 @@ econ_loss <- ddply(stormdat1, .(EVTYPE), summarize,
 # Find events that caused most death and injury
 prop_events <- head(econ_loss[order(econ_loss$property, decreasing = T), ], 10)
 prop_events<-prop_events[, c("EVTYPE", "property")]
+prop_events
 crop_events <- head(econ_loss[order(econ_loss$crop, decreasing = T), ], 10)
 crop_events<-crop_events[, c("EVTYPE", "crop")]
-
+crop_events
 ```
 
 **Figure 3.** Barplot showing the economic losses due to property related events
-
-```{r}
+```{r echo=FALSE}
 # Plot Economic Losses due to property damages
 ggplot(data = prop_events, aes(x=EVTYPE, property, fill = property)) + geom_bar(stat = "identity") + 
     xlab("Event") + ylab("Property Damage") + ggtitle("Property Damage caused by Events (top 10) ") + 
     coord_flip() + theme(legend.position = "none")
-
-
-
-
 ```
 
-
-
-
 #Conclusions
-=============
 The weather condition that, by a large margin, causes the most fatalities and injuries are Tornados. Tornado's also cause the most proporty damages, whilst most crop damages are casued by hail.
 
